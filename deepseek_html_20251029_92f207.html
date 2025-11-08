@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hit Korone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+
+        header {
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .score-container, .level-container {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .game-area {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        #target {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            user-select: none;
+        }
+
+        #target:hover {
+            transform: scale(1.05);
+        }
+
+        .instructions {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        .instructions h2 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .instructions ul {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 1rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button#resetBtn {
+            background: #f44336;
+        }
+
+        button#resetBtn:hover {
+            background: #d32f2f;
+        }
+
+        .hit-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4CAF50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        .level-up {
+            animation: levelUp 1s ease;
+        }
+
+        @keyframes levelUp {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @media (max-width: 768px) {
+            .game-area {
+                height: 400px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .game-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Just Hit Korone</h1>
+            <p>click to hit her!</p>
+        </header>
+        
+        <div class="game-info">
+            <div class="score-container">
+                Score: <span id="score">0</span>
+            </div>
+            <div class="level-container">
+                Level: <span id="level">1</span>
+            </div>
+        </div>
+        
+        <div class="game-area" id="gameArea">
+            <img id="target" src="https://cdn-icons-png.flaticon.com/512/1674/1674295.png" alt="Target">
+            <div class="hit-message" id="hitMessage">HIT!</div>
+        </div>
+        
+        <div class="instructions">
+            <h2>How to Play</h2>
+            <ul>
+                <li>Click on the moving target to hit it</li>
+                <li>The target changes position randomly</li>
+                <li>Every 5 hits increases the difficulty level</li>
+            </ul>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn">Start Game</button>
+            <button id="resetBtn">Reset Game</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let score = 0;
+        let level = 1;
+        let targetState = 0; // 0 = normal, 1 = injured, 2 = fully injured
+        let gameActive = false;
+        let moveInterval;
+        let speed = 100; // Initial movement speed in milliseconds
+
+        // DOM elements
+        const target = document.getElementById('target');
+        const gameArea = document.getElementById('gameArea');
+        const scoreDisplay = document.getElementById('score');
+        const levelDisplay = document.getElementById('level');
+        const hitMessage = document.getElementById('hitMessage');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Image URLs for different target states
+        const targetImages = [
+            'koro-f.png', // Normal
+            'koro-h.png', // Injured
+            'koro-fh.png'  // Fully injured
+        ];
+
+        // Sound effect URLs
+        const soundEffects = [
+            'kuri.mp3',
+            'kuri(1).mp3',
+            'kuri(2).mp3',
+            'kuri(3).mp3',
+            'kuri(4).mp3',
+            'kuri(5).mp3',
+            'kuri(6).mp3',
+            'kuri(7).mp3',
+        ];
+
+        // Initialize the game
+        function initGame() {
+            score = 0;
+            level = 1;
+            targetState = 0;
+            speed = 100;
+            scoreDisplay.textContent = score;
+            levelDisplay.textContent = level;
+            target.src = targetImages[0];
+            target.style.cursor = 'pointer';
+            gameActive = false;
+            clearInterval(moveInterval);
+            resetTargetPosition();
+        }
+
+        // Start the game
+        function startGame() {
+            if (gameActive) return;
+            
+            gameActive = true;
+            startBtn.disabled = true;
+            resetTargetPosition();
+            
+            // Start moving the target
+            moveInterval = setInterval(moveTarget, speed);
+        }
+
+        // Reset the game
+        function resetGame() {
+            initGame();
+            startBtn.disabled = false;
+        }
+
+        // Move the target to a random position
+        function moveTarget() {
+            if (!gameActive) return;
+            
+            const areaWidth = gameArea.offsetWidth - target.offsetWidth;
+            const areaHeight = gameArea.offsetHeight - target.offsetHeight;
+            
+            const randomX = Math.floor(Math.random() * areaWidth);
+            const randomY = Math.floor(Math.random() * areaHeight);
+            
+            target.style.left = `${randomX}px`;
+            target.style.top = `${randomY}px`;
+        }
+
+        // Reset target to center position
+        function resetTargetPosition() {
+            const areaWidth = gameArea.offsetWidth;
+            const areaHeight = gameArea.offsetHeight;
+            
+            target.style.left = `${(areaWidth - target.offsetWidth) / 2}px`;
+            target.style.top = `${(areaHeight - target.offsetHeight) / 2}px`;
+        }
+
+        // Handle target click
+        function handleTargetClick() {
+            if (!gameActive) return;
+            
+            // Play random sound effect
+            playRandomSound();
+            
+            // Update target state
+            targetState++;
+            
+            if (targetState === 1) {
+                // First hit - change to injured state
+                target.src = targetImages[1];
+                showHitMessage();
+            } else if (targetState === 2) {
+                // Second hit - change to fully injured state and stop moving
+                target.src = targetImages[2];
+                clearInterval(moveInterval);
+                showHitMessage();
+                
+                // Reset target state after a delay and continue game
+                setTimeout(() => {
+                    targetState = 0;
+                    target.src = targetImages[0];
+                    updateScore();
+                    moveInterval = setInterval(moveTarget, speed);
+                }, 1500);
+            }
+        }
+
+        // Update score and level
+        function updateScore() {
+            score++;
+            scoreDisplay.textContent = score;
+            
+            // Check for level up
+            if (score % 5 === 0) {
+                level++;
+                levelDisplay.textContent = level;
+                levelDisplay.classList.add('level-up');
+                
+                // Increase difficulty by reducing movement interval
+                speed = Math.max(300, 100 - (level * 100));
+                clearInterval(moveInterval);
+                moveInterval = setInterval(moveTarget, speed);
+                
+                setTimeout(() => {
+                    levelDisplay.classList.remove('level-up');
+                }, 1000);
+            }
+        }
+
+        // Show hit message
+        function showHitMessage() {
+            hitMessage.style.opacity = '1';
+            setTimeout(() => {
+                hitMessage.style.opacity = '0';
+            }, 1000);
+        }
+
+        // Play a random sound effect
+        function playRandomSound() {
+            const randomIndex = Math.floor(Math.random() * soundEffects.length);
+            const audio = new Audio(soundEffects[randomIndex]);
+            audio.play();
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startGame);
+        resetBtn.addEventListener('click', resetGame);
+        target.addEventListener('click', handleTargetClick);
+
+        // Initialize the game on load
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
